@@ -10,7 +10,11 @@ A tiny C utility to recursively remove `.DS_Store` files from your system.
 
 - **Recursive Scanning**: Traverses subdirectories automatically.
 - **Safe Deletion**: Only targets files exactly named `.DS_Store`.
-- **Status Logging**: Prints the path of every file deleted.
+- **Flexible Modes**:
+  - **Dry Run**: Preview deletions without making changes.
+  - **Interactive**: Confirm each deletion manually.
+  - **Quiet**: Suppress non-essential output.
+  - **Verbose**: See which directories are being scanned.
 - **Fast and Lightweight**: Written in pure C with minimal dependencies.
 
 ## Installation
@@ -36,16 +40,35 @@ gcc -o rmds rmds.c
 
 ## Usage
 
-Run `rmds` followed by the directory you want to clean:
-
 ```bash
-./rmds /path/to/directory
+./rmds [options] [start_path]
 ```
 
-If no path is provided, it defaults to your home directory (`$HOME`):
+### Options
 
+| Flag | Long Flag | Description |
+| :--- | :--- | :--- |
+| `-n` | `--dry-run` | Show what would be deleted without actually deleting. |
+| `-q` | `--quiet` | Suppress all output except errors. |
+| `-v` | `--verbose` | Display directories as they are scanned. |
+| `-i` | `--interactive` | Prompt for confirmation before deleting each file. |
+| `-h` | `--help` | Display the help menu. |
+
+### Examples
+
+**Clean a specific directory (dry run):**
 ```bash
-./rmds
+./rmds -n /path/to/directory
+```
+
+**Clean your home directory quietly:**
+```bash
+./rmds -q
+```
+
+**Interactive clean with verbose output:**
+```bash
+./rmds -iv /path/to/project
 ```
 
 > [!CAUTION]

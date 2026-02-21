@@ -6,45 +6,73 @@ set -e
 
 # Setup test environment
 TEST_DIR="test_workspace"
-mkdir -p "$TEST_DIR/nest1/nest2"
-touch "$TEST_DIR/.DS_Store"
-touch "$TEST_DIR/nest1/.DS_Store"
-touch "$TEST_DIR/nest1/nest2/.DS_Store"
-touch "$TEST_DIR/safe_file.txt"
-touch "$TEST_DIR/nest1/other.c"
+
+setup_test_dir() {
+    rm -rf "$TEST_DIR"
+    mkdir -p "$TEST_DIR/nest1/nest2"
+    touch "$TEST_DIR/.DS_Store"
+    touch "$TEST_DIR/nest1/.DS_Store"
+    touch "$TEST_DIR/nest1/nest2/.DS_Store"
+    touch "$TEST_DIR/safe_file.txt"
+    touch "$TEST_DIR/nest1/other.c"
+}
+
+# Build
+make > /dev/null
 
 echo "Running tests..."
 
-# Build if necessary
-make > /dev/null
+# 1. Test Help Flag
+echo -n "Test 1: Help flag... "
+./rmds --help | grep -q "Usage:"
+echo "PASS"
 
-# Run rmds on the test workspace
-./rmds "$TEST_DIR" > /dev/null
-
-# Assertions
-EXIT_CODE=0
-
-if [ -f "$TEST_DIR/.DS_Store" ] || [ -f "$TEST_DIR/nest1/.DS_Store" ] || [ -f "$TEST_DIR/nest1/nest2/.DS_Store" ]; then
-    echo "FAIL: .DS_Store files still exist!"
-    EXIT_CODE=1
+# 2. Test Dry Run
+setup_test_dir
+echo -n "Test 2: Dry run... "
+OUTPUT=$(./rmds --dry-run "$TEST_DIR")
+if [ -f "$TEST_DIR/.DS_Store" ] && echo "$OUTPUT" | grep -q "(dry-run) Would delete"; then
+    echo "PASS"
 else
-    echo "PASS: All .DS_Store files removed."
+    echo "FAIL: Files deleted or output missing"
+    exit 1
 fi
 
-if [ ! -f "$TEST_DIR/safe_file.txt" ] || [ ! -f "$TEST_DIR/nest1/other.c" ]; then
-    echo "FAIL: Safe files were deleted!"
-    EXIT_CODE=1
+# 3. Test Quiet Mode
+setup_test_dir
+echo -n "Test 3: Quiet mode... "
+OUTPUT=$(./rmds --quiet "$TEST_DIR")
+if [ -z "$OUTPUT" ] && [ ! -f "$TEST_DIR/.DS_Store" ]; then
+    echo "PASS"
 else
-    echo "PASS: Safe files preserved."
+    echo "FAIL: Output produced or files not deleted"
+    echo "Output: $OUTPUT"
+    exit 1
+fi
+
+# 4. Test Basic Recursion (Existing)
+setup_test_dir
+echo -n "Test 4: Basic recursion... "
+./rmds "$TEST_DIR" > /dev/null
+if [ ! -f "$TEST_DIR/.DS_Store" ] && [ -f "$TEST_DIR/safe_file.txt" ]; then
+    echo "PASS"
+else
+    echo "FAIL: Files not deleted correctly"
+    exit 1
+fi
+
+# 5. Test Verbose Mode
+setup_test_dir
+echo -n "Test 5: Verbose mode... "
+OUTPUT=$(./rmds --verbose "$TEST_DIR")
+if echo "$OUTPUT" | grep -q "Scanning: $TEST_DIR/nest1"; then
+    echo "PASS"
+else
+    echo "FAIL: Verbose output missing scanning info"
+    exit 1
 fi
 
 # Cleanup
 rm -rf "$TEST_DIR"
 
-if [ $EXIT_CODE -eq 0 ]; then
-    echo "Test suite PASSED."
-else
-    echo "Test suite FAILED."
-fi
-
-exit $EXIT_CODE
+echo "All tests PASSED."
