@@ -18,6 +18,7 @@
  */
 
 #include <dirent.h>
+#include <errno.h>
 #include <getopt.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -31,33 +32,47 @@ typedef struct {
     bool quiet;
     bool verbose;
     bool interactive;
+    int max_depth;
+    bool one_file_system;
+    dev_t root_dev;
 } Options;
 
 void print_usage(const char *progname)
 {
     printf("Usage: %s [options] [start_path]\n", progname);
     printf("\nOptions:\n");
-    printf("  -n, --dry-run      Show what would be deleted without actually "
-           "deleting\n");
-    printf("  -q, --quiet        Suppress all output except errors\n");
-    printf("  -v, --verbose      Display directories as they are scanned\n");
-    printf("  -i, --interactive  Prompt for confirmation before deleting each "
-           "file\n");
-    printf("  -h, --help         Display this help menu\n");
+    printf("  -n, --dry-run          Show what would be deleted without "
+           "actually deleting\n");
+    printf("  -q, --quiet            Suppress all output except errors\n");
+    printf("  -v, --verbose          Display directories as they are "
+           "scanned\n");
+    printf("  -i, --interactive      Prompt for confirmation before deleting "
+           "each file\n");
+    printf("  -d, --max-depth <N>    Only scan directories at most N levels "
+           "deep\n");
+    printf("  -x, --one-file-system  Do not traverse directories on different "
+           "filesystems\n");
+    printf("  -h, --help             Display this help menu\n");
     printf("\nArguments:\n");
-    printf("  start_path         The directory to start scanning (defaults to "
-           "$HOME)\n");
+    printf("  start_path             The directory to start scanning (defaults "
+           "to $HOME)\n");
 }
 
 // Recursively deletes all `.DS_Store` files in the specified directory,
 // including any subdirectories.
-void remove_dsstore(const char *path, const Options *opts)
+void remove_dsstore(const char *path, const Options *opts, int current_depth)
 {
+    // Check depth limit
+    if (opts->max_depth != -1 && current_depth > opts->max_depth) {
+        return;
+    }
+
     struct dirent *entry;
     DIR *dir = opendir(path);
     if (!dir) {
         if (!opts->quiet) {
-            perror("Error opening directory");
+            fprintf(stderr, "Error opening directory '%s': %s\n", path,
+                    strerror(errno));
         }
         return;
     }
@@ -76,25 +91,39 @@ void remove_dsstore(const char *path, const Options *opts)
         snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
 
         struct stat statbuf;
-        if (lstat(fullpath, &statbuf) == -1)
+        if (lstat(fullpath, &statbuf) == -1) {
+            if (!opts->quiet) {
+                fprintf(stderr, "Error stating '%s': %s\n", fullpath,
+                        strerror(errno));
+            }
             continue;
+        }
 
         if (S_ISDIR(statbuf.st_mode)) {
+            // Check filesystem boundary
+            if (opts->one_file_system && statbuf.st_dev != opts->root_dev) {
+                if (opts->verbose && !opts->quiet) {
+                    printf("Skipping (different filesystem): %s\n", fullpath);
+                }
+                continue;
+            }
+
             // Recurse into directory
-            remove_dsstore(fullpath, opts);
+            remove_dsstore(fullpath, opts, current_depth + 1);
         } else if (strcmp(entry->d_name, ".DS_Store") == 0) {
             bool should_delete = true;
 
             if (opts->interactive) {
                 printf("Delete %s? (y/N): ", fullpath);
                 char response = getchar();
-                if (response != 'y' && response != 'Y') {
-                    should_delete = false;
-                }
                 // Clear input buffer
                 if (response != '\n' && response != EOF) {
-                    while (getchar() != '\n')
+                    int c;
+                    while ((c = getchar()) != '\n' && c != EOF)
                         ;
+                }
+                if (response != 'y' && response != 'Y') {
+                    should_delete = false;
                 }
             }
 
@@ -109,7 +138,8 @@ void remove_dsstore(const char *path, const Options *opts)
                             printf("Deleted: %s\n", fullpath);
                         }
                     } else {
-                        perror("Error deleting file");
+                        fprintf(stderr, "Error deleting '%s': %s\n", fullpath,
+                                strerror(errno));
                     }
                 }
             }
@@ -121,15 +151,24 @@ void remove_dsstore(const char *path, const Options *opts)
 
 int main(int argc, char *argv[])
 {
-    Options opts = {false, false, false, false};
+    Options opts = {.dry_run = false,
+            .quiet = false,
+            .verbose = false,
+            .interactive = false,
+            .max_depth = -1,
+            .one_file_system = false,
+            .root_dev = 0};
 
     static struct option long_options[] = {{"dry-run", no_argument, 0, 'n'},
             {"quiet", no_argument, 0, 'q'}, {"verbose", no_argument, 0, 'v'},
-            {"interactive", no_argument, 0, 'i'}, {"help", no_argument, 0, 'h'},
-            {0, 0, 0, 0}};
+            {"interactive", no_argument, 0, 'i'},
+            {"max-depth", required_argument, 0, 'd'},
+            {"one-file-system", no_argument, 0, 'x'},
+            {"help", no_argument, 0, 'h'}, {0, 0, 0, 0}};
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "nqvih", long_options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "nqvihd:x", long_options, NULL)) !=
+            -1) {
         switch (opt) {
         case 'n':
             opts.dry_run = true;
@@ -142,6 +181,12 @@ int main(int argc, char *argv[])
             break;
         case 'i':
             opts.interactive = true;
+            break;
+        case 'd':
+            opts.max_depth = atoi(optarg);
+            break;
+        case 'x':
+            opts.one_file_system = true;
             break;
         case 'h':
             print_usage(argv[0]);
@@ -158,6 +203,14 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    struct stat root_stat;
+    if (stat(start_path, &root_stat) == -1) {
+        fprintf(stderr, "Error stating starting path '%s': %s\n", start_path,
+                strerror(errno));
+        return 1;
+    }
+    opts.root_dev = root_stat.st_dev;
+
     if (!opts.quiet) {
         printf("Scanning for .DS_Store files in: %s\n", start_path);
         if (opts.dry_run) {
@@ -165,7 +218,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    remove_dsstore(start_path, &opts);
+    remove_dsstore(start_path, &opts, 0);
 
     return 0;
 }

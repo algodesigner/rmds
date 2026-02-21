@@ -72,6 +72,18 @@ else
     exit 1
 fi
 
+# 6. Test Max Depth
+setup_test_dir
+echo -n "Test 6: Max depth (level 1)... "
+./rmds --max-depth 1 "$TEST_DIR" > /dev/null
+# Root (level 0) and nest1 (level 1) should be cleared, nest2 (level 2) should NOT.
+if [ ! -f "$TEST_DIR/.DS_Store" ] && [ ! -f "$TEST_DIR/nest1/.DS_Store" ] && [ -f "$TEST_DIR/nest1/nest2/.DS_Store" ]; then
+    echo "PASS"
+else
+    echo "FAIL: Max depth not respected"
+    exit 1
+fi
+
 # Cleanup
 rm -rf "$TEST_DIR"
 

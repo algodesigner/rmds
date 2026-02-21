@@ -52,6 +52,8 @@ gcc -o rmds rmds.c
 | `-q` | `--quiet` | Suppress all output except errors. |
 | `-v` | `--verbose` | Display directories as they are scanned. |
 | `-i` | `--interactive` | Prompt for confirmation before deleting each file. |
+| `-d` | `--max-depth <N>` | Only scan directories at most N levels deep. |
+| `-x` | `--one-file-system` | Do not traverse directories on different filesystems. |
 | `-h` | `--help` | Display the help menu. |
 
 ### Examples
