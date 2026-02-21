@@ -100,6 +100,13 @@ gcc -o rmds rmds.c
 > [!CAUTION]
 > Deletion is permanent. Ensure you have the necessary permissions and have backed up important data if you are unsure.
 
+## Compatibility
+
+`rmds` is written in standard C and uses POSIX-compliant headers. It is fully compatible with:
+- **macOS**: Native environment; handles TCC/permission errors gracefully.
+- **Linux**: Works perfectly on any distribution (Ubuntu, Debian, Fedora, etc.).
+- **Windows (WSL)**: Compatible through the Windows Subsystem for Linux.
+
 ## License
 
 This project is licensed under the **3-Clause BSD License**. See the [LICENSE](LICENSE) file for the full license text.
