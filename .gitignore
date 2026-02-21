@@ -1,0 +1,10 @@
+# Binaries
+rmds
+
+# Debug symbols
+*.dSYM/
+.DS_Store
+
+# Object files and dependencies
+*.o
+*.d
