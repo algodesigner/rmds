@@ -1,6 +1,6 @@
 # rmds
 
-A tiny C utility to recursively remove `.DS_Store` files from your system.
+A C utility to recursively remove `.DS_Store` files from your system.
 
 ## Overview
 
