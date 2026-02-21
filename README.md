@@ -54,6 +54,8 @@ gcc -o rmds rmds.c
 | `-i` | `--interactive` | Prompt for confirmation before deleting each file. |
 | `-d` | `--max-depth <N>` | Only scan directories at most N levels deep. |
 | `-x` | `--one-file-system` | Do not traverse directories on different filesystems. |
+| `-e` | `--exclude <DIR>` | Exclude directory name from scan (can be used multiple times). |
+| `-m` | `--name <NAME>` | Target filename to delete (defaults to .DS_Store). |
 | `-h` | `--help` | Display the help menu. |
 
 ### Examples
@@ -63,9 +65,19 @@ gcc -o rmds rmds.c
 ./rmds -n /path/to/directory
 ```
 
-**Clean your home directory quietly:**
+**Clean multiple directories quietly:**
 ```bash
-./rmds -q
+./rmds -q dir1 dir2 dir3
+```
+
+**Ignore specific directories (e.g., .git and node_modules):**
+```bash
+./rmds -e .git -e node_modules /path/to/project
+```
+
+**Target a different file name:**
+```bash
+./rmds -m "Thumbs.db" /path/to/directory
 ```
 
 **Interactive clean with verbose output:**

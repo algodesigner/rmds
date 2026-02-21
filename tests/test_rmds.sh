@@ -6,9 +6,10 @@ set -e
 
 # Setup test environment
 TEST_DIR="test_workspace"
+TEST_DIR2="test_workspace2"
 
 setup_test_dir() {
-    rm -rf "$TEST_DIR"
+    rm -rf "$TEST_DIR" "$TEST_DIR2"
     mkdir -p "$TEST_DIR/nest1/nest2"
     touch "$TEST_DIR/.DS_Store"
     touch "$TEST_DIR/nest1/.DS_Store"
@@ -84,7 +85,45 @@ else
     exit 1
 fi
 
+# 7. Test Exclusion
+setup_test_dir
+echo -n "Test 7: Exclusion... "
+./rmds --exclude nest1 "$TEST_DIR" > /dev/null
+# Root should be cleared, nest1 should be skipped entirely
+if [ ! -f "$TEST_DIR/.DS_Store" ] && [ -f "$TEST_DIR/nest1/.DS_Store" ]; then
+    echo "PASS"
+else
+    echo "FAIL: Exclusion not respected"
+    exit 1
+fi
+
+# 8. Test Custom Name
+setup_test_dir
+touch "$TEST_DIR/custom.target"
+echo -n "Test 8: Custom target name... "
+./rmds --name custom.target "$TEST_DIR" > /dev/null
+# custom.target should be gone, .DS_Store should remain
+if [ ! -f "$TEST_DIR/custom.target" ] && [ -f "$TEST_DIR/.DS_Store" ]; then
+    echo "PASS"
+else
+    echo "FAIL: Custom target name failed"
+    exit 1
+fi
+
+# 9. Test Multiple Paths
+setup_test_dir
+mkdir -p "$TEST_DIR2"
+touch "$TEST_DIR2/.DS_Store"
+echo -n "Test 9: Multiple paths... "
+./rmds "$TEST_DIR" "$TEST_DIR2" > /dev/null
+if [ ! -f "$TEST_DIR/.DS_Store" ] && [ ! -f "$TEST_DIR2/.DS_Store" ]; then
+    echo "PASS"
+else
+    echo "FAIL: Multiple paths failed"
+    exit 1
+fi
+
 # Cleanup
-rm -rf "$TEST_DIR"
+rm -rf "$TEST_DIR" "$TEST_DIR2"
 
 echo "All tests PASSED."
