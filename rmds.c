@@ -1,5 +1,9 @@
 /*
  * rmds.c - A utility to recursively remove .DS_Store files
+ * Copyright (c) 2026, Vlad Shurupov. All rights reserved.
+ *
+ * Licensed under the 3-Clause BSD License.
+ * See the LICENSE file in the project root for full license text.
  *
  * This program scans a specified directory (or the user's home directory by
  * default) and recursively deletes all .DS_Store files found within it. These
