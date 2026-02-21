@@ -11,6 +11,7 @@ A C utility to recursively remove `.DS_Store` files from your system.
 - **Recursive Scanning**: Traverses subdirectories automatically.
 - **Safe Deletion**: Only targets files exactly named `.DS_Store`.
 - **Flexible Modes**:
+  - **Clean All**: Target both `.DS_Store` and `._*` AppleDouble files.
   - **Dry Run**: Preview deletions without making changes.
   - **Interactive**: Confirm each deletion manually.
   - **Quiet**: Suppress non-essential output.
@@ -48,6 +49,7 @@ gcc -o rmds rmds.c
 
 | Flag | Long Flag | Description |
 | :--- | :--- | :--- |
+| `-A` | `--clean-all` | Remove both .DS_Store and ._* (AppleDouble) files. |
 | `-n` | `--dry-run` | Show what would be deleted without actually deleting. |
 | `-q` | `--quiet` | Suppress all output except errors. |
 | `-v` | `--verbose` | Display directories as they are scanned. |
@@ -63,6 +65,11 @@ gcc -o rmds rmds.c
 **Clean a specific directory (dry run):**
 ```bash
 ./rmds -n /path/to/directory
+```
+
+**Clean all metadata files (including AppleDouble `._*` files):**
+```bash
+./rmds -A /path/to/external/drive
 ```
 
 **Clean multiple directories quietly:**

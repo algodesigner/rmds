@@ -38,12 +38,15 @@ typedef struct {
     char **excludes;
     int exclude_count;
     const char *target_name;
+    bool clean_all;
 } Options;
 
 void print_usage(const char *progname)
 {
     printf("Usage: %s [options] [path1] [path2] ...\n", progname);
     printf("\nOptions:\n");
+    printf("  -A, --clean-all        Remove both .DS_Store and ._* "
+           "(AppleDouble) files\n");
     printf("  -n, --dry-run          Show what would be deleted without "
            "actually deleting\n");
     printf("  -q, --quiet            Suppress all output except errors\n");
@@ -73,6 +76,14 @@ bool is_excluded(const char *name, const Options *opts)
         }
     }
     return false;
+}
+
+bool is_target(const char *name, const Options *opts)
+{
+    if (opts->clean_all) {
+        return (strcmp(name, ".DS_Store") == 0 || strncmp(name, "._", 2) == 0);
+    }
+    return (strcmp(name, opts->target_name) == 0);
 }
 
 // Recursively deletes target files in the specified directory,
@@ -135,7 +146,7 @@ void remove_dsstore(const char *path, const Options *opts, int current_depth)
 
             // Recurse into directory
             remove_dsstore(fullpath, opts, current_depth + 1);
-        } else if (strcmp(entry->d_name, opts->target_name) == 0) {
+        } else if (is_target(entry->d_name, opts)) {
             bool should_delete = true;
 
             if (opts->interactive) {
@@ -185,10 +196,12 @@ int main(int argc, char *argv[])
             .root_dev = 0,
             .excludes = NULL,
             .exclude_count = 0,
-            .target_name = ".DS_Store"};
+            .target_name = ".DS_Store",
+            .clean_all = false};
 
-    static struct option long_options[] = {{"dry-run", no_argument, 0, 'n'},
-            {"quiet", no_argument, 0, 'q'}, {"verbose", no_argument, 0, 'v'},
+    static struct option long_options[] = {{"clean-all", no_argument, 0, 'A'},
+            {"dry-run", no_argument, 0, 'n'}, {"quiet", no_argument, 0, 'q'},
+            {"verbose", no_argument, 0, 'v'},
             {"interactive", no_argument, 0, 'i'},
             {"max-depth", required_argument, 0, 'd'},
             {"one-file-system", no_argument, 0, 'x'},
@@ -198,8 +211,11 @@ int main(int argc, char *argv[])
 
     int opt;
     while ((opt = getopt_long(
-                    argc, argv, "nqvihd:xe:m:", long_options, NULL)) != -1) {
+                    argc, argv, "Anqvihd:xe:m:", long_options, NULL)) != -1) {
         switch (opt) {
+        case 'A':
+            opts.clean_all = true;
+            break;
         case 'n':
             opts.dry_run = true;
             break;
@@ -256,7 +272,13 @@ int main(int argc, char *argv[])
         opts.root_dev = root_stat.st_dev;
 
         if (!opts.quiet) {
-            printf("Scanning for %s files in: %s\n", opts.target_name, home);
+            if (opts.clean_all) {
+                printf("Cleaning all metadata (.DS_Store and ._*) in: %s\n",
+                        home);
+            } else {
+                printf("Scanning for %s files in: %s\n", opts.target_name,
+                        home);
+            }
         }
         remove_dsstore(home, &opts, 0);
     } else {
@@ -272,8 +294,13 @@ int main(int argc, char *argv[])
             opts.root_dev = root_stat.st_dev;
 
             if (!opts.quiet) {
-                printf("Scanning for %s files in: %s\n", opts.target_name,
-                        path);
+                if (opts.clean_all) {
+                    printf("Cleaning all metadata (.DS_Store and ._*) in: %s\n",
+                            path);
+                } else {
+                    printf("Scanning for %s files in: %s\n", opts.target_name,
+                            path);
+                }
             }
             remove_dsstore(path, &opts, 0);
         }

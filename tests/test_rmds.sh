@@ -123,6 +123,19 @@ else
     exit 1
 fi
 
+# 10. Test Clean All
+setup_test_dir
+touch "$TEST_DIR/._metadata"
+touch "$TEST_DIR/nest1/._attributes"
+echo -n "Test 10: Clean all... "
+./rmds --clean-all "$TEST_DIR" > /dev/null
+if [ ! -f "$TEST_DIR/.DS_Store" ] && [ ! -f "$TEST_DIR/._metadata" ] && [ ! -f "$TEST_DIR/nest1/._attributes" ]; then
+    echo "PASS"
+else
+    echo "FAIL: Clean all failed to remove AppleDouble files"
+    exit 1
+fi
+
 # Cleanup
 rm -rf "$TEST_DIR" "$TEST_DIR2"
 
