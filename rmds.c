@@ -99,8 +99,16 @@ void remove_dsstore(const char *path, const Options *opts, int current_depth)
     DIR *dir = opendir(path);
     if (!dir) {
         if (!opts->quiet) {
-            fprintf(stderr, "Error opening directory '%s': %s\n", path,
-                    strerror(errno));
+            // macOS often returns EPERM for protected Library folders (TCC)
+            // EACCES is standard permission denied.
+            if (errno == EACCES || errno == EPERM) {
+                if (opts->verbose) {
+                    printf("Skipping (Access Denied): %s\n", path);
+                }
+            } else {
+                fprintf(stderr, "Error opening directory '%s': %s\n", path,
+                        strerror(errno));
+            }
         }
         return;
     }
