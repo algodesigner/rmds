@@ -4,7 +4,7 @@ A C utility to recursively remove `.DS_Store` files from your system.
 
 ## Overview
 
-`rmds` (Remove DS_Store) is a command-line tool designed to scan a directory tree and delete all `.DS_Store` files it encounters. This is particularly useful for cleaning up macOS metadata files before sharing directories or committing to version control systems that aren't configured to ignore them.
+`rmds` is a powerful and flexible command-line utility designed to clean up metadata clutter. While primarily focused on recursively removing `.DS_Store` files, it also supports targeting **AppleDouble** (`._*`) files and any other recurring junk files through custom naming and pattern modes. This is particularly useful for cleaning up macOS metadata files before sharing directories or committing to version control systems that aren't configured to ignore them.
 
 ## Features
 
@@ -70,6 +70,11 @@ gcc -o rmds rmds.c
 **Clean all metadata files (including AppleDouble `._*` files):**
 ```bash
 ./rmds -A /path/to/external/drive
+```
+
+**Preview cleaning all metadata (dry run):**
+```bash
+./rmds -nA /path/to/external/drive
 ```
 
 **Clean multiple directories quietly:**
