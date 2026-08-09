@@ -124,18 +124,65 @@ void remove_dsstore(const char *path, const Options *opts, int current_depth)
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
 
+        /*
+         * Optimization: avoid a syscall (lstat) for every entry. Many filesystems
+         * populate d_type in struct dirent, so use it to determine directories
+         * and regular files. Only call lstat when d_type is DT_UNKNOWN or when
+         * filesystem/device checks are required for directories.
+         */
+        bool entry_is_dir = false;
+        bool need_stat = false;
+
+        if (entry->d_type == DT_DIR) {
+            entry_is_dir = true;
+        } else if (entry->d_type == DT_UNKNOWN) {
+            need_stat = true;
+        } else {
+            /* Not a directory and type known (e.g., DT_REG). If it's not the
+             * target filename, skip it without any syscall. */
+            if (!is_target(entry->d_name, opts))
+                continue;
+        }
+
+        /* Build full path only when needed (stat or delete or recurse). */
         snprintf(fullpath, sizeof(fullpath), "%s/%s", path, entry->d_name);
 
         struct stat statbuf;
-        if (lstat(fullpath, &statbuf) == -1) {
-            if (!opts->quiet) {
-                fprintf(stderr, "Error stating '%s': %s\n", fullpath,
-                        strerror(errno));
+        if (need_stat) {
+            if (lstat(fullpath, &statbuf) == -1) {
+                if (!opts->quiet) {
+                    fprintf(stderr, "Error stating '%s': %s\n", fullpath,
+                            strerror(errno));
+                }
+                continue;
             }
-            continue;
+            entry_is_dir = S_ISDIR(statbuf.st_mode);
+        } else if (entry_is_dir) {
+            /* d_type indicates directory; stat only if we must check filesystem
+             * boundary (one-file-system option). */
+            if (opts->one_file_system) {
+                if (lstat(fullpath, &statbuf) == -1) {
+                    if (!opts->quiet) {
+                        fprintf(stderr, "Error stating '%s': %s\n", fullpath,
+                                strerror(errno));
+                    }
+                    continue;
+                }
+            }
+        } else {
+            /* Not a directory and d_type was known to be non-dir, but it is
+             * a target (checked above). Stat to get error messages and for
+             * potential future checks. */
+            if (lstat(fullpath, &statbuf) == -1) {
+                if (!opts->quiet) {
+                    fprintf(stderr, "Error stating '%s': %s\n", fullpath,
+                            strerror(errno));
+                }
+                continue;
+            }
         }
 
-        if (S_ISDIR(statbuf.st_mode)) {
+        if (entry_is_dir) {
             // Check exclusion
             if (is_excluded(entry->d_name, opts)) {
                 if (opts->verbose && !opts->quiet) {
@@ -145,11 +192,13 @@ void remove_dsstore(const char *path, const Options *opts, int current_depth)
             }
 
             // Check filesystem boundary
-            if (opts->one_file_system && statbuf.st_dev != opts->root_dev) {
-                if (opts->verbose && !opts->quiet) {
-                    printf("Skipping (different filesystem): %s\n", fullpath);
+            if (opts->one_file_system) {
+                if (statbuf.st_dev != opts->root_dev) {
+                    if (opts->verbose && !opts->quiet) {
+                        printf("Skipping (different filesystem): %s\n", fullpath);
+                    }
+                    continue;
                 }
-                continue;
             }
 
             // Recurse into directory
